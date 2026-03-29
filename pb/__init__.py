@@ -120,11 +120,7 @@ def _evaluate_fitness(population: Population, model: Client, num_evals: int) -> 
         }
         for future in concurrent.futures.as_completed(future_to_fit):
             unit_index = future_to_fit[future]
-            try:
-                data = future.result()
-                results[unit_index] = data
-            except Exception as exc:
-                print(f"Exception: {exc}")
+            results[unit_index] = future.result()
 
 
     # https://arxiv.org/pdf/2309.16797.pdf#page=5, P is a task-prompt to condition 

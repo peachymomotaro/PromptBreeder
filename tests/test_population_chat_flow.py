@@ -51,6 +51,17 @@ class EliteTrackingModel:
         return FakeResponse("seeded prompt")
 
 
+class ExplodingFitnessModel:
+    def __init__(self):
+        self.num_workers = 1
+
+    def chat(self, message=None, **kwargs):
+        if message.startswith("boom"):
+            raise RuntimeError("chat failed during fitness evaluation")
+
+        return FakeResponse("The answer is 2")
+
+
 class PopulationChatFlowTests(unittest.TestCase):
     def test_init_run_initializes_and_scores_population_via_chat(self):
         original_examples = pb_module.gsm8k_examples
@@ -95,5 +106,18 @@ class PopulationChatFlowTests(unittest.TestCase):
             self.assertEqual(population.units[0].fitness, 0.0)
             self.assertEqual(population.units[1].fitness, 1.0)
             self.assertEqual(population.elites[-1].P, "slow-correct")
+        finally:
+            pb_module.gsm8k_examples = original_examples
+
+    def test_evaluate_fitness_surfaces_worker_errors(self):
+        original_examples = pb_module.gsm8k_examples
+        pb_module.gsm8k_examples = [{"question": "What is 1 + 1?", "answer": "#### 2"}]
+
+        try:
+            population = create_population(["style"], ["mutator-a"], "Solve the problem.")
+            population.units[0].P = "boom"
+
+            with self.assertRaisesRegex(RuntimeError, "chat failed during fitness evaluation"):
+                pb_module._evaluate_fitness(population, ExplodingFitnessModel(), 1)
         finally:
             pb_module.gsm8k_examples = original_examples
