@@ -7,6 +7,7 @@ from typing import List
 from pb.mutation_prompts import mutation_prompts
 from pb.thinking_styles import thinking_styles
 from pb import gsm
+from pb.cohere_compat import chat_text
 from cohere import Client
 
 from dotenv import load_dotenv
@@ -28,10 +29,10 @@ def zero_order_prompt_gen(unit: EvolutionUnit, problem_description: str, model: 
     Returns: 
         EvolutionUnit: the evolution unit to replace the loser unit.
     """
-    result = model.generate(problem_description + " An ordered list of 100 hints: ")
+    result = chat_text(model, problem_description + " An ordered list of 100 hints: ")
     # search for the pattern "anything after 1. and before 2."
     pattern = r"1\.(.*?)2\."
-    match = re.search(pattern, result[0].text, re.DOTALL)
+    match = re.search(pattern, result, re.DOTALL)
     if match: 
         # return the first match
         unit.P = match.group(1).strip()
@@ -46,7 +47,7 @@ def first_order_prompt_gen(unit: EvolutionUnit, model: Client, **kwargs) -> Evol
     Returns: 
         EvolutionUnit: the evolution unit to replace the loser unit.
     """
-    unit.P = model.generate(unit.M + " " + unit.P)[0].text
+    unit.P = chat_text(model, unit.M + " " + unit.P)
     return unit
     
 # Estimation of Distribution Mutation - there is a variation of this called EDA rank
@@ -72,7 +73,7 @@ def lineage_based_mutation(unit: EvolutionUnit, elites: List[EvolutionUnit], mod
     HEADING = "GENOTYPES FOUND IN ASCENDING ORDER OF QUALITY \n "
     # made a choice not to format it with newlines, could change later.
     ITEMS = "\n".join(["{}. {}".format(i+1, x.P) for i, x in enumerate(elites)])
-    unit.P = model.generate(HEADING + ITEMS)[0].text
+    unit.P = chat_text(model, HEADING + ITEMS)
     
     return unit
 
@@ -84,7 +85,7 @@ def zero_order_hypermutation(unit: EvolutionUnit, problem_description: str, mode
         EvolutionUnit: the evolution unit to replace the loser unit.
     """
     RANDOM_THINKING_STYLE = random.sample(thinking_styles, 1)[0]
-    unit.M = model.generate(problem_description + " " + RANDOM_THINKING_STYLE)[0].text
+    unit.M = chat_text(model, problem_description + " " + RANDOM_THINKING_STYLE)
     return unit
 
 def first_order_hypermutation(unit: EvolutionUnit, model: Client, **kwargs) -> EvolutionUnit:
@@ -96,8 +97,8 @@ def first_order_hypermutation(unit: EvolutionUnit, model: Client, **kwargs) -> E
         EvolutionUnit: the evolution unit to replace the loser unit.
     """
     HYPER_MUTATION_PROMPT="Please summarize and improve the following instruction: "
-    unit.M = model.generate(HYPER_MUTATION_PROMPT + unit.M)[0].text
-    unit.P = model.generate(unit.M + " " + unit.P)[0].text
+    unit.M = chat_text(model, HYPER_MUTATION_PROMPT + unit.M)
+    unit.P = chat_text(model, unit.M + " " + unit.P)
     return unit 
 
 
@@ -115,7 +116,14 @@ def working_out_task_prompt(unit: EvolutionUnit, model: Client, **kwargs) -> Evo
     """
     RANDOM_WORKING_OUT = random.sample(gsm8k_examples, 1)[0]
   
-    unit.P = model.generate("I gave a friend an instruction and some advice. Here are the correct examples of his workings out " + RANDOM_WORKING_OUT['question'] +" " +  RANDOM_WORKING_OUT['answer'] + " The instruction was: ")[0].text
+    unit.P = chat_text(
+        model,
+        "I gave a friend an instruction and some advice. Here are the correct examples of his workings out "
+        + RANDOM_WORKING_OUT['question']
+        + " "
+        + RANDOM_WORKING_OUT['answer']
+        + " The instruction was: ",
+    )
     return unit 
 
 # Prompt crossover and context shuffling. These happen AFTER mutation operators. 
