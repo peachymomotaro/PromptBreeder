@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 
 from pb import create_population, init_run, run_for_n
+from pb.config import resolve_cohere_api_key
 from pb.mutation_prompts import mutation_prompts
 from pb.thinking_styles import thinking_styles
 
@@ -18,6 +19,7 @@ from rich import print
 import cohere
 
 load_dotenv() # load environment variables
+ENV_COHERE_API_KEY = os.environ.get("COHERE_API_KEY", "")
 
 st.set_page_config(layout="wide")
 
@@ -53,10 +55,7 @@ if 'histogram_data' not in st.session_state:
     st.session_state['histogram_data'] = {}
 
 if 'COHERE_API_KEY' not in st.session_state:
-    if 'COHERE_API_KEY' in os.environ:
-        st.session_state['COHERE_API_KEY'] = os.environ['COHERE_API_KEY']
-    else:
-        st.session_state['COHERE_API_KEY'] = ""
+    st.session_state['COHERE_API_KEY'] = ENV_COHERE_API_KEY
 
 # thinking_styles dataframe
 ts_df = pd.DataFrame(
@@ -88,7 +87,8 @@ There are 12 mutations outlined by the promptbreeder paper. Only 9 are implement
 where you can use those extra 3 mutations, but I can't promise they will be exactly the same as DeepMind's implementations.
 """)
 problem_description = st.text_input("problem description", value="Solve the math word problem, giving your answer as an arabic numeral.", key="pd")
-st.session_state.COHERE_API_KEY = st.text_input("Cohere PROD key", key="ch", type='password')
+entered_api_key = st.text_input("Cohere PROD key", key="ch", type='password')
+st.session_state.COHERE_API_KEY = resolve_cohere_api_key(entered_api_key, ENV_COHERE_API_KEY)
 
 col1, col2, = st.columns(2)
 with col1:
@@ -134,6 +134,9 @@ st.session_state.calls = (st.session_state.size*st.session_state.evals + st.sess
 
 second_button = st.button(f"run for {st.session_state.generations} generations", disabled=(not (st.session_state.size > 0)))
 if second_button:
+    if not st.session_state.COHERE_API_KEY:
+        st.error("Set COHERE_API_KEY in .env or enter a Cohere PROD key in the UI.")
+        st.stop()
     st.session_state.population = create_population(tp_set=ts_selected_rows['0'].tolist(), mutator_set=mp_selected_rows['0'].tolist(), problem_description=problem_description)
     st.session_state.size = st.session_state.population.size
     st.session_state.calls = st.session_state.evals*st.session_state.generations 
@@ -233,4 +236,3 @@ with st.sidebar:
     st.metric("Approximate cost", "$"+str(round(st.session_state.calls * 0.00234,2)))
     st.title("Current Information")
     st.metric("Current generation", str(st.session_state.current_generation))
-
