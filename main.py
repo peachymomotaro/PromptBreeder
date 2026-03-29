@@ -1,4 +1,5 @@
 from pb import create_population, init_run, run_for_n
+from pb.config import resolve_requests_per_minute
 from pb.mutation_prompts import mutation_prompts
 from pb.thinking_styles import thinking_styles
 
@@ -29,6 +30,7 @@ total_evaluations = args['num_mutation_prompts']*args['num_thinking_styles']*arg
 
 # set num_workers to total_evaluations so we always have a thread 
 co = cohere.Client(api_key=os.environ['COHERE_API_KEY'],  num_workers=total_evaluations, max_retries=5, timeout=30) #override the 2 min timeout with 30s. 
+co.requests_per_minute = resolve_requests_per_minute(os.environ.get("COHERE_REQUESTS_PER_MINUTE"))
 
 tp_set = mutation_prompts[:int(args['num_mutation_prompts'])]
 mutator_set= thinking_styles[:int(args['num_thinking_styles'])]

@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 from pb import create_population, init_run, run_for_n
-from pb.config import resolve_cohere_api_key
+from pb.config import resolve_cohere_api_key, resolve_requests_per_minute
 from pb.mutation_prompts import mutation_prompts
 from pb.thinking_styles import thinking_styles
 
@@ -20,6 +20,7 @@ import cohere
 
 load_dotenv() # load environment variables
 ENV_COHERE_API_KEY = os.environ.get("COHERE_API_KEY", "")
+ENV_COHERE_REQUESTS_PER_MINUTE = resolve_requests_per_minute(os.environ.get("COHERE_REQUESTS_PER_MINUTE"))
 
 st.set_page_config(layout="wide")
 
@@ -143,6 +144,7 @@ if second_button:
     st.session_state.start_time = time.time()
     st.session_state.running = True
     co = cohere.Client(api_key=st.session_state.COHERE_API_KEY,  num_workers=st.session_state.evals, max_retries=5, timeout=60) #override the 2 min timeout with 60s. The APIs performance varies heavily. 
+    co.requests_per_minute = ENV_COHERE_REQUESTS_PER_MINUTE
     st.session_state.population = init_run(st.session_state.population, co,  st.session_state.evals)
 
     fitness_avg = 0
