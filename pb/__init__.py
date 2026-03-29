@@ -130,19 +130,17 @@ def _evaluate_fitness(population: Population, model: Client, num_evals: int) -> 
     # https://arxiv.org/pdf/2309.16797.pdf#page=5, P is a task-prompt to condition 
     # the LLM before further input Q.
     for unit_index, fitness_results in enumerate(results):
+        current_unit = population.units[unit_index]
         for i, x in enumerate(fitness_results):
             valid = re.search(gsm.gsm_extract_answer(batch[i]['answer']), x)
             if valid:
                 # 0.25 = 1 / 4 examples
-                population.units[unit_index].fitness += (1 / num_evals)
+                current_unit.fitness += (1 / num_evals)
 
-            if unit.fitness > elite_fitness:
+            if current_unit.fitness > elite_fitness:
                 # I am copying this bc I don't know how it might get manipulated by future mutations.
-
-                unit = population.units[unit_index]
-                
-                current_elite = unit.model_copy()
-                elite_fitness = unit.fitness
+                current_elite = current_unit.model_copy()
+                elite_fitness = current_unit.fitness
     
     # append best unit of generation to the elites list.
     population.elites.append(current_elite)
