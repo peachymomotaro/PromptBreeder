@@ -8,6 +8,8 @@ https://promptbreeder.streamlit.app/
 
 If using CLI: Make a .env file similar to .env.sample and add your COHERE_API_KEY. Has to be a prod key. 
 
+PromptBreeder now routes Cohere requests through the Chat API under the hood, replacing the older Generate endpoint usage while keeping the same CLI and Streamlit entrypoints.
+
 ## Setup
 
 `git clone https://github.com/vaughanlove/PromptBreeder`
