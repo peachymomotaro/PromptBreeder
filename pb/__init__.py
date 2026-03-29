@@ -106,7 +106,7 @@ def _evaluate_fitness(population: Population, model: Client, num_evals: int) -> 
         # todo. model.batch this or multithread
         examples.append([unit.P + ' \n' + example['question'] for example in batch])
 
-    results = []
+    results = [None] * len(examples)
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(examples)) as executor:
         future_to_fit = {
             executor.submit(
@@ -115,14 +115,14 @@ def _evaluate_fitness(population: Population, model: Client, num_evals: int) -> 
                 example_batch,
                 getattr(model, "num_workers", None),
                 temperature=0,
-            ): example_batch
-            for example_batch in examples
+            ): unit_index
+            for unit_index, example_batch in enumerate(examples)
         }
         for future in concurrent.futures.as_completed(future_to_fit):
-            example_batch = future_to_fit[future]  # Get the prompt corresponding to this future
+            unit_index = future_to_fit[future]
             try:
                 data = future.result()
-                results.append(data)
+                results[unit_index] = data
             except Exception as exc:
                 print(f"Exception: {exc}")
 
