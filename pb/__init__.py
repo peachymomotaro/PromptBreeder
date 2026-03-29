@@ -12,6 +12,7 @@ from cohere import Client
 
 from pb.mutation_operators import mutate
 from pb import gsm
+from pb.cohere_compat import batch_chat_text
 from pb.types import EvolutionUnit, Population
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ def init_run(population: Population, model: Client, num_evals: int):
         prompts.append(template)
     
  
-    results = model.batch_generate(prompts)
+    results = batch_chat_text(model, prompts, max_workers=getattr(model, "num_workers", None))
 
     end_time = time.time()
 
@@ -66,7 +67,7 @@ def init_run(population: Population, model: Client, num_evals: int):
 
     assert len(results) == population.size, "size of google response to population is mismatched"
     for i, item in enumerate(results):
-        population.units[i].P = item[0].text
+        population.units[i].P = item
 
     _evaluate_fitness(population, model, num_evals)
     
@@ -107,7 +108,16 @@ def _evaluate_fitness(population: Population, model: Client, num_evals: int) -> 
 
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(examples)) as executor:
-        future_to_fit = {executor.submit(model.batch_generate, example_batch,  temperature=0): example_batch for example_batch in examples}
+        future_to_fit = {
+            executor.submit(
+                batch_chat_text,
+                model,
+                example_batch,
+                getattr(model, "num_workers", None),
+                temperature=0,
+            ): example_batch
+            for example_batch in examples
+        }
         for future in concurrent.futures.as_completed(future_to_fit):
             example_batch = future_to_fit[future]  # Get the prompt corresponding to this future
             try:
@@ -121,7 +131,7 @@ def _evaluate_fitness(population: Population, model: Client, num_evals: int) -> 
     # the LLM before further input Q.
     for unit_index, fitness_results in enumerate(results):
         for i, x in enumerate(fitness_results):
-            valid = re.search(gsm.gsm_extract_answer(batch[i]['answer']), x[0].text)
+            valid = re.search(gsm.gsm_extract_answer(batch[i]['answer']), x)
             if valid:
                 # 0.25 = 1 / 4 examples
                 population.units[unit_index].fitness += (1 / num_evals)
